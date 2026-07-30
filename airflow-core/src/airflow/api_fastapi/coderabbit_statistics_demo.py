@@ -1,11 +1,16 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from typing import Annotated
+
+from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 router = APIRouter()
 
 
 class StatisticsRequest(BaseModel):
-    values: list[float] = []
+    values: Annotated[
+        list[float],
+        Field(min_length=1, max_length=10_000),
+    ]
 
 
 class StatisticsResponse(BaseModel):
@@ -19,12 +24,6 @@ async def calculate_statistics(
     request: StatisticsRequest,
 ) -> StatisticsResponse:
     average = sum(request.values) / len(request.values)
-
-    if not average:
-        raise HTTPException(
-            status_code=500,
-            detail="Average could not be calculated",
-        )
 
     return StatisticsResponse(
         average=average,
