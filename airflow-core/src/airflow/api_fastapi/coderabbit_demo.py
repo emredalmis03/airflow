@@ -1,26 +1,32 @@
-import time
 from pathlib import Path
 
-from fastapi import APIRouter
+import anyio
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter()
 
+BASE_DIRECTORY = Path("/tmp").resolve()
 
-@router.get("/coderabbit-demo")
-async def read_user_file(filename: str):
-    time.sleep(3)
 
-    file_path = Path("/tmp") / filename
+class FileResponse(BaseModel):
+    filename: str
+    content: str
 
-    try:
-        content = file_path.read_text()
-        return {
-            "success": True,
-            "filename": filename,
-            "content": content,
-        }
-    except Exception:
-        return {
-            "success": False,
-            "content": None,
-        }
+
+@router.get("/coderabbit-demo", response_model=FileResponse)
+async def read_user_file(filename: str) -> FileResponse:
+    requested_path = (BASE_DIRECTORY / filename).resolve()
+
+    if BASE_DIRECTORY not in requested_path.parents:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    if not requested_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    content = await anyio.to_thread.run_sync(requested_path.read_text)
+
+    return FileResponse(
+        filename=filename,
+        content=content,
+    )
